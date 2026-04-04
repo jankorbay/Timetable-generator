@@ -57,7 +57,7 @@ session_start();
         <p class="pl-20">5.5.3 Twitter</p>
         <p class="pl-10">5.6 Kvůli zobrazení cílené reklamy v rámci reklamních a sociálních sítí na jiných internetových stránkách předáváme těmto reklamním a sociálním sítím údaje o vašem chování na webu; nepředáváme jim však vaše identifikační údaje.</p>
         <p class="pt-2"><strong>6 Předávání do třetích zemí</strong></p>
-        <p class="pl-10">6.1 Vaše osobní údaje nebudou předávány do třetích zemí.</p>
+        <p class="pl-10">6.1 V souvislosti s využíváním některých služeb třetích stran, zejména Google Analytics, může docházet k předávání osobních údajů do třetích zemí, včetně zemí mimo EU/EHP. Takové předávání probíhá v souladu s platnými právními předpisy a za použití odpovídajících záruk ochrany osobních údajů.</p>
         
         <p class="pt-2"><strong>7 Ochrana citlivých údajů</strong></p>
         <p class="pl-10">7.1 Naše aplikace neukládá žádná uživatelská data. Přesto jsou veškeré procesy chráněny následujícími mechanismy:</p>
