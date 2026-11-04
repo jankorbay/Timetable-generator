@@ -103,3 +103,11 @@ body {
     page-break-inside: avoid !important;
     break-inside: avoid !important;
 }
+/* On-screen preview looks like a sheet of paper; print margins come from @page */
+@media screen {
+    body.timetable {
+        max-width: 210mm;
+        margin: 2rem auto;
+        padding: 0 1.5rem;
+    }
+}

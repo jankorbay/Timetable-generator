@@ -1,6 +1,6 @@
 <?php 
 
-    function printEvent(DateTime $start, DateTime $end, string $summary, array $description = null, string $classes = '', bool $program = false, bool $required = false) {    
+    function printEvent(DateTime $start, DateTime $end, string $summary, ?array $description = null, string $classes = '', bool $program = false, bool $required = false) {    
         //according to time, calculate height of box. 2rem = 30min
         $height = (($end->getTimestamp() - $start->getTimestamp()) / 900) * 0.75;
         $time = $start->format('H:i') .' - '. $end->format('H:i');
@@ -44,7 +44,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="styles.css">
 </head>
-<body>
+<body class="timetable">
     <?php foreach ($days as $day => $events) { ?>
         <h1 class="text-center font-['skautbold'] text-3xl mb-5"><?= $week_days[(new DateTime($day))->format('w')] . ' ' . (new DateTime($day))->format('d. m.') ?></h1>
         <div id="boxes" class="flex gap-1 flex-col font-['themix']">

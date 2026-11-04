@@ -1,5 +1,16 @@
 {
+    "license": "MIT",
     "require": {
         "google/apiclient": "^2.0"
+    },
+    "scripts": {
+        "setup": [
+            "@composer install",
+            "@php -r \"file_exists('google/config.php') || copy('google/config.sample.php', 'google/config.php');\""
+        ],
+        "start": [
+            "Composer\\Config::disableProcessTimeout",
+            "@php -S localhost:8000"
+        ]
     }
 }
