@@ -19,7 +19,9 @@
 You plan your camp, course or event in Google Calendar. The app reads the events and prints a clean A4 timetable, one page per day.
 
 - **Sign in with Google**: read-only access to your calendars.
-- **Pick a calendar, a date range and a template**: Výchozí (default), VK Ursus or RK Pecka.
+- **Pick a calendar, a date range and a template**: 6 color styles (gray, forest, ocean, sunset, lavender, ink-saving minimal) plus VK Ursus and RK Pecka.
+- **Preview and customize a template**: **Náhled a úpravy** shows it with sample data (no sign-in needed). You can set the event name (top left), your own colors, the icon for required blocks and its color, text colors (event name, day, normal and highlighted blocks), a legend beside the first blocks of each day and which whole words make a block dark. Signed-in users' style is saved to their account on the server and used on every generation.
+- **Share a style**: **Kopírovat odkaz se stylem** makes a link. Whoever opens it can preview the style and save it as their own; their saved style changes only when they click **Uložit jako můj styl**.
 - **Smart layout**: box height follows event length, overlapping events sit side by side.
 - **Meals are highlighted**: events named *snídaně, svačina, oběd, večeře* get a dark box.
 - **Print or save as PDF**: straight from the browser.
@@ -37,7 +39,7 @@ composer setup   # installs dependencies, creates google/config.php
 composer start   # serves the app on http://localhost:8000
 ```
 
-The sample timetable (`/sample.php`) works right away. Google sign-in needs the step below.
+The sample timetable (`/sample.php`, or `/sample.php?template=forest`) and the template preview work right away, without Google. Google sign-in needs the step below.
 
 ## Google Calendar setup
 
@@ -47,6 +49,8 @@ The sample timetable (`/sample.php`) works right away. Google sign-in needs the 
 4. Fill `client_id`, `client_secret` and `redirect_uri` in `google/config.php`.
 
 `google/config.php` is git-ignored, so your secrets stay local.
+
+Saved styles live in `data/settings/` (git-ignored). The web server needs write access there. `data/.htaccess` blocks web access on Apache; on another server, block `/data/` yourself.
 
 ## How to fill the calendar
 
@@ -66,13 +70,15 @@ index.php           Landing page, calendar/date/template picker
 google_export.php   Fetches events, groups them by day, renders the template
 sample.php          Demo timetable with hard-coded events
 google/             OAuth flow and Calendar API calls
-templates/          Print layouts (default, ursus, pecka)
+save_settings.php   Saves a signed-in user's style (JSON) to data/settings/
+templates/          Print layouts (default, ursus, pecka), list.php (template picker list),
+                    settings.php (style validation and storage), render.php (applies the style), header.php (event name and legend)
 ```
 
 ### Add your own template
 
-1. Copy `templates/default.php` to `templates/<name>.php` and change the look.
-2. Add `<option value="<name>">` to the template `<select>` in `index.php`.
+- **New colors only**: add `'<name>' => ['name' => '…', 'file' => 'default', 'colors' => ['#main', '#program']]` to `templates/list.php`.
+- **New layout**: copy `templates/default.php` to `templates/<name>.php`, then add `'<name>' => ['name' => '…']` to `templates/list.php`.
 
 ## License
 
