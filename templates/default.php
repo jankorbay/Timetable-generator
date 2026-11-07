@@ -71,7 +71,7 @@
     <title><?= $title !== '' ? htmlspecialchars($title) . ' – ' : '' ?>Harmonogram</title>
     <link rel="icon" href="images/logo.png">
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=<?= filemtime(__DIR__ . '/../styles.css') ?>">
 </head>
 <body class="timetable <?= htmlspecialchars($theme) ?>" style="<?= $style ?>">
     <?php foreach ($days as $day => $events) { ?>

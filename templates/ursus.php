@@ -35,7 +35,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" href="images/logo.png">
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=<?= filemtime(__DIR__ . '/../styles.css') ?>">
     <title><?= $title !== '' ? htmlspecialchars($title) . ' – ' : '' ?>Harmonogram</title>
 </head>
 <body class="timetable">

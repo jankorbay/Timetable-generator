@@ -8,7 +8,7 @@ session_start();
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" href="images/logo.png">
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=<?= filemtime(__DIR__ . '/styles.css') ?>"><!-- version = file time, so browsers drop a cached old copy -->
     <title>Zásady ochrany osobních údajů</title>
 </head>
 <body class="font-['themix'] max-w-4xl mx-auto">
