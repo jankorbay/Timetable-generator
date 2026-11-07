@@ -10,7 +10,7 @@ function createSampleEvents() {
     $todayFormatted = $today->format('Y-m-d');
     $tomorrowFormatted = $tomorrow->format('Y-m-d');
     
-    // Sample events for today
+    // Sample events; ACTIVITY/TOPIC/ORGANIZATIONAL color the Pecka template
     $events = [
         // Day 1 events
         [
@@ -23,6 +23,7 @@ function createSampleEvents() {
             'DTSTART' => (clone $today)->setTime(9, 0),
             'DTEND' => (clone $today)->setTime(10, 30),
             'SUMMARY' => 'Zahájení dne',
+            'ORGANIZATIONAL' => true,
             'DESCRIPTION' => ['přivítání', 'informace o programu'],
             'PROGRAM' => true
         ],
@@ -30,6 +31,7 @@ function createSampleEvents() {
             'DTSTART' => (clone $today)->setTime(10, 45),
             'DTEND' => (clone $today)->setTime(12, 15),
             'SUMMARY' => 'Dopolední program - Orientace v přírodě',
+            'ACTIVITY' => true,
             'DESCRIPTION' => ['práce s mapou a buzolou', 'orientační běh'],
             'PROGRAM' => true,
             'REQUIRED' => true
@@ -44,6 +46,7 @@ function createSampleEvents() {
             'DTSTART' => (clone $today)->setTime(14, 0),
             'DTEND' => (clone $today)->setTime(16, 0),
             'SUMMARY' => 'Odpolední program - Tábornické dovednosti',
+            'TOPIC' => true,
             'DESCRIPTION' => ['stavba přístřešku', 'rozdělávání ohně'],
             'PROGRAM' => true
         ],
@@ -57,6 +60,7 @@ function createSampleEvents() {
             'DTSTART' => (clone $today)->setTime(17, 30),
             'DTEND' => (clone $today)->setTime(19, 0),
             'SUMMARY' => 'Týmové hry',
+            'ACTIVITY' => true,
             'DESCRIPTION' => ['strategické hry', 'budování týmu'],
             'PROGRAM' => true
         ],
@@ -70,6 +74,7 @@ function createSampleEvents() {
             'DTSTART' => (clone $today)->setTime(20, 30),
             'DTEND' => (clone $today)->setTime(22, 0),
             'SUMMARY' => 'Večerní program - Táborák',
+            'TOPIC' => true,
             'DESCRIPTION' => ['zpěv', 'povídání', 'hry'],
             'PROGRAM' => true
         ],
@@ -91,6 +96,7 @@ function createSampleEvents() {
             'DTSTART' => (clone $tomorrow)->setTime(9, 0),
             'DTEND' => (clone $tomorrow)->setTime(9, 30),
             'SUMMARY' => 'Ranní nástup',
+            'ORGANIZATIONAL' => true,
             'DESCRIPTION' => ['informace o programu dne'],
             'PROGRAM' => true
         ],
@@ -98,6 +104,7 @@ function createSampleEvents() {
             'DTSTART' => (clone $tomorrow)->setTime(9, 45),
             'DTEND' => (clone $tomorrow)->setTime(12, 0),
             'SUMMARY' => 'Celodenní výprava - část 1',
+            'ACTIVITY' => true,
             'DESCRIPTION' => ['pěší výlet do okolí', 'poznávání přírody'],
             'PROGRAM' => true,
             'REQUIRED' => true
@@ -112,6 +119,7 @@ function createSampleEvents() {
             'DTSTART' => (clone $tomorrow)->setTime(13, 30),
             'DTEND' => (clone $tomorrow)->setTime(16, 30),
             'SUMMARY' => 'Celodenní výprava - část 2',
+            'TOPIC' => true,
             'DESCRIPTION' => ['plnění úkolů', 'týmová spolupráce'],
             'PROGRAM' => true
         ],
@@ -131,6 +139,7 @@ function createSampleEvents() {
             'DTSTART' => (clone $tomorrow)->setTime(19, 30),
             'DTEND' => (clone $tomorrow)->setTime(21, 0),
             'SUMMARY' => 'Večerní program - Reflexe dne',
+            'TOPIC' => true,
             'DESCRIPTION' => ['sdílení zážitků', 'hodnocení aktivit'],
             'PROGRAM' => true
         ]
@@ -174,13 +183,10 @@ function groupEventsByDay($events) {
 $sampleEvents = createSampleEvents();
 $days = groupEventsByDay($sampleEvents);
 
-// Store template selection in session
-$_SESSION['template'] = 'ursus';
-
-// Define needed variables for template
-$week_days = ['neděle', 'pondělí', 'úterý', 'středa', 'čtvrtek', 'pátek', 'sobota'];
-$food = ['snídaně', 'svačina', 'oběd', 'večeře'];
-
-// Include template directly instead of redirecting
-include 'templates/' . $_SESSION['template'] . '.php';
-?> 
+// Template and customizations from the query string (same keys as the form), falling back to Ursus;
+// ?preview=1 skips the print dialog (used by the preview window)
+$settings = $_GET;
+$fallback = 'ursus';
+$preview = isset($_GET['preview']);
+require __DIR__ . '/templates/render.php';
+?>

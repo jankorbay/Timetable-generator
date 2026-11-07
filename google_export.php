@@ -108,9 +108,8 @@ foreach ($days as &$day) {
 // Do not remove. It's for reference binding
 unset($day);
 
-$week_days = ['neděle', 'pondělí', 'úterý', 'středa', 'čtvrtek', 'pátek', 'sobota'];
-$food = ['snídaně', 'svačina', 'oběd', 'večeře'];
-
-// Load template
-include 'templates/' . $_SESSION['template'] . '.php';
+// Render with the template and the user's customizations (validated in render.php)
+$settings = ['template' => $_SESSION['template']] + ($_SESSION['custom'] ?? []);
+$fallback = 'default';
+require __DIR__ . '/templates/render.php';
 ?> 

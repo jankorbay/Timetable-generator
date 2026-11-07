@@ -4,13 +4,7 @@
         //according to time, calculate height of box. 2rem = 30min
         $height = (($end->getTimestamp() - $start->getTimestamp()) / 900) * 0.75;
         $time = $start->format('H:i') .' - '. $end->format('H:i');
-        //search $summary for any word from global array $food
-        $food = false;
-        foreach ($GLOBALS['food'] as $foodType) {
-            if (mb_stripos($summary, $foodType) !== false) {
-                $food = true;
-            }
-        }
+        $food = containsWholeWord($summary, $GLOBALS['food']);
         echo '
             <div class="box '. ($activity ? 'bg-[#5E2281] border-[#5E2281] text-[#FCC11E]' : '') . ($topic ? 'bg-[#FCC11E] border-[#FCC11E] text-[#5E2281]' : '') . ($organizational ? 'bg-[#000000] border-[#000000] text-[#FCC11E]' : '') . ' min-h-['. $height .'rem] ' . $classes .'">
                 <div class="inner_box">        
@@ -33,13 +27,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Generátor harmonogramu</title>
+    <title><?= $title !== '' ? htmlspecialchars($title) . ' – ' : '' ?>Harmonogram</title>
     <link rel="icon" href="images/logo.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body class="timetable">
     <?php foreach ($days as $day => $events) { ?>
+        <?php include __DIR__ . '/header.php'; ?>
         <h1 class="text-center font-['skautbold'] text-3xl mb-5 text-[#5E2281]"><?= $week_days[(new DateTime($day))->format('w')] . ' ' . (new DateTime($day))->format('d. m. Y') ?></h1>
         <div id="boxes" class="flex gap-1 flex-col font-['themix']">
         
@@ -84,6 +79,7 @@
         Vygenerováno pomocí harmonogram.skauting.cz
     </div>
 </body>
+<?php if (empty($preview)): ?>
 <script>
     window.onload = function() {
         // Force page breaks before event containers that would otherwise be split
@@ -102,4 +98,5 @@
         window.print();
     }
 </script>
+<?php endif; ?>
 </html>

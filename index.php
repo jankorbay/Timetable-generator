@@ -8,11 +8,28 @@ if (isset($_GET['logout'])) {
     unset($_SESSION['selected_calendar']);
     unset($_SESSION['daterange']);
     unset($_SESSION['template']);
+    unset($_SESSION['custom']);
     header('Location: index.php');
     exit();
 }
 
 $is_authenticated = isset($_SESSION['google_token']);
+require_once __DIR__ . '/templates/settings.php';
+$templates = require __DIR__ . '/templates/list.php';
+
+// A shared style link (index.php?template=…&title=…): keep it in the session until the user saves or discards it,
+// so it survives the Google sign-in round trip.
+if (array_intersect_key($_GET, array_flip(['template', 'title', 'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'food', 'icon', 'legend', 'legendText']))) {
+    $_SESSION['shared_settings'] = cleanSettings($_GET, $templates);
+    header('Location: index.php');
+    exit();
+}
+$sharedSettings = $_SESSION['shared_settings'] ?? null;
+$savedSettings = $is_authenticated && isset($_SESSION['google_user']['email']) ? loadSettings($_SESSION['google_user']['email'], $templates) : [];
+$templateOptions = '';
+foreach ($templates as $key => $template) {
+    $templateOptions .= '<option value="' . htmlspecialchars($key) . '">' . htmlspecialchars($template['name']) . '</option>';
+}
 $calendars = [];
 
 if ($is_authenticated) {
@@ -77,6 +94,9 @@ if ($is_authenticated) {
         $_SESSION['selected_calendar'] = $_POST['calendar_id'];
         $_SESSION['daterange'] = $_POST['daterange'];
         $_SESSION['template'] = $_POST['template'];
+        // Style from the preview window as a query string; validated when rendering (templates/render.php)
+        parse_str(is_string($_POST['settings'] ?? null) ? $_POST['settings'] : '', $custom);
+        $_SESSION['custom'] = $custom;
 
         // Always redirect to the standard export page
         header('Location: google_export.php');
@@ -129,8 +149,208 @@ if ($is_authenticated) {
         background: rgba(255, 255, 255, 0.3);
         }
     </style>
+    <script>
+    // Template style. Starts from the shared link's style if one is open, else the account's saved style.
+    // Signed-in users' edits are saved to their account automatically, except while a shared style is open
+    // (that one is saved only on "Uložit jako můj styl"). query() is the one format for preview, links and saving.
+    function timetableSettings() {
+        const TEMPLATES = <?= json_encode(array_map(fn($t) => [
+            'colors' => $t['colors'] ?? null,
+            'darkText' => $t['darkText'] ?? '#ffffff',
+            'icon' => $t['icon'] ?? 'mark',
+            'legend' => $t['legend'] ?? false,
+            'legendText' => $t['legendText'] ?? DEFAULT_LEGEND,
+            'required' => $t['required'] ?? true,
+        ], $templates), JSON_UNESCAPED_UNICODE) ?>;
+        const SAVED = <?= json_encode((object) $savedSettings, JSON_UNESCAPED_UNICODE) ?>;
+        const SHARED = <?= json_encode($sharedSettings === null ? null : (object) $sharedSettings, JSON_UNESCAPED_UNICODE) ?>;
+        const LOGGED_IN = <?= json_encode($is_authenticated) ?>;
+        let saveTimer; // outside the reactive object, so setting it doesn't re-run the autosave effect
+
+        const state = {
+            event_popup: false, login_popup: false, preview_popup: false, copied: false,
+            shared: SHARED !== null, saveStatus: '', lastSaved: null,
+            tpl: 'default', title: '', food: '', customColors: false, c1: '#000000', c2: '#ffffff', c3: '#000000', c4: '', c5: '#000000', c6: '#000000', c7: '#ffffff',
+            icon: '', legend: null, legendText: '',
+            t() { return TEMPLATES[this.tpl]; },
+            apply(s) {
+                this.tpl = Object.hasOwn(TEMPLATES, s.template || '') ? s.template : 'default';
+                this.title = s.title || '';
+                this.food = s.food || '';
+                this.customColors = !!s.c1;
+                this.c1 = s.c1 || '#000000';
+                this.c2 = s.c2 || '#ffffff';
+                this.c3 = s.c3 || this.c1;
+                this.c5 = s.c5 || this.c1;
+                this.c6 = s.c6 || this.c1;
+                this.c7 = s.c7 || this.t().darkText;
+                this.c4 = s.c4 || '';
+                this.icon = s.icon || '';
+                this.legend = s.legend === '1' ? true : s.legend === '0' ? false : null;
+                this.legendText = s.legendText || '';
+            },
+            iconValue() { return this.icon || this.t().icon; },
+            legendOn() { return this.legend ?? this.t().legend; },
+            isCustomized() {
+                return this.title !== '' || this.food !== '' || this.customColors || this.icon !== '' || this.c4 !== '' || this.legend !== null || this.legendText !== '';
+            },
+            query() {
+                const p = new URLSearchParams({ template: this.tpl });
+                if (this.title) p.set('title', this.title);
+                if (this.customColors && this.t().colors) {
+                    for (const key of ['c1', 'c2', 'c3', 'c5', 'c6', 'c7']) p.set(key, this[key]);
+                }
+                if (this.c4 && this.t().required) p.set('c4', this.c4);
+                if (this.food) p.set('food', this.food);
+                if (this.icon) p.set('icon', this.icon);
+                if (this.legend !== null) p.set('legend', this.legend ? '1' : '0');
+                if (this.legendText) p.set('legendText', this.legendText);
+                return p.toString();
+            },
+            post(body) {
+                return fetch('save_settings.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+                    .then(r => { if (!r.ok) throw new Error(r.status); });
+            },
+            store(q) {
+                return this.post({ settings: Object.fromEntries(new URLSearchParams(q)) })
+                    .then(() => { this.lastSaved = q; this.saveStatus = 'saved'; })
+                    .catch(() => { this.saveStatus = 'error'; });
+            },
+            autosave() {
+                const q = this.query();
+                if (!LOGGED_IN || this.shared || q === this.lastSaved) return;
+                clearTimeout(saveTimer);
+                saveTimer = setTimeout(() => this.store(q), 800);
+            },
+            saveShared() {
+                const q = this.query();
+                this.store(q).then(() => { if (this.lastSaved === q) this.shared = false; });
+            },
+            discardShared() {
+                this.post({ action: 'discard' }).catch(() => {});
+                this.apply(SAVED);
+                this.lastSaved = this.query();
+                this.shared = false;
+            },
+            toggleColors() {
+                if (!this.customColors || !this.t().colors) return;
+                const [main, program] = this.t().colors;
+                Object.assign(this, { c1: main, c2: program, c3: main, c5: main, c6: main, c7: this.t().darkText });
+            },
+            reset() {
+                this.title = ''; this.food = ''; this.customColors = false; this.c4 = '';
+                this.icon = ''; this.legend = null; this.legendText = '';
+            },
+            shareLink() {
+                const link = location.origin + location.pathname + '?' + this.query();
+                navigator.clipboard.writeText(link)
+                    .then(() => { this.copied = true; setTimeout(() => this.copied = false, 2000); })
+                    .catch(() => prompt('Zkopírujte odkaz:', link));
+            },
+        };
+        state.apply(SAVED);
+        state.lastSaved = state.query();
+        if (SHARED) state.apply(SHARED);
+        return state;
+    }
+    </script>
 </head>
-<body x-data="{ event_popup: false, login_popup: false }">
+<body x-data="timetableSettings()" x-effect="autosave()">
+    <!-- template preview and style editor: renders sample.php with the current style, works without Google sign-in -->
+    <div x-cloak x-show="preview_popup" x-transition class="w-full h-full fixed top-0 left-0 flex justify-center items-center py-5 z-30 bg-black/40">
+        <div @click.outside="preview_popup = false" class="ed-panel w-full h-full max-w-6xl mx-3 p-4 rounded-2xl myshadow relative flex flex-col md:flex-row gap-4">
+            <div class="md:w-80 shrink-0 flex flex-col gap-3 text-sm overflow-y-auto max-h-[40vh] md:max-h-none pr-1">
+                <div class="flex items-center justify-between gap-2 px-1">
+                    <h3 class="font-bold text-xl">Náhled a úpravy</h3>
+                    <button type="button" @click="preview_popup = false" aria-label="Zavřít" class="shrink-0"><img src="images/icons/cross.svg" class="w-8 transition hover:scale-110" alt=""></button>
+                </div>
+                <p x-show="shared" class="bg-amber-50 border border-amber-300 rounded-xl p-3">Upravuješ sdílený styl. Tvůj uložený styl se nezmění, dokud ho neuložíš.</p>
+
+                <section class="ed-card">
+                    <h4 class="ed-title">Šablona</h4>
+                    <select x-model="tpl" x-bind:disabled="customColors && !!t().colors" aria-label="Šablona" class="ed-input">
+                        <?= $templateOptions ?>
+                    </select>
+                    <span x-show="customColors && t().colors" class="ed-hint">Šablonu nejde změnit, dokud máš zapnuté vlastní barvy. Nejdřív je vypni v sekci Barvy níže.</span>
+                    <label class="ed-label">Název akce
+                        <input type="text" x-model.debounce.500ms="title" maxlength="100" placeholder="např. Letní tábor 2026" class="ed-input">
+                        <span class="ed-hint">Zobrazí se vlevo nahoře na každé stránce.</span>
+                    </label>
+                </section>
+
+                <section x-show="t().colors" class="ed-card">
+                    <h4 class="ed-title">Barvy</h4>
+                    <label class="ed-switch">Vlastní barvy <input type="checkbox" x-model="customColors" @change="toggleColors()"></label>
+                    <span x-show="customColors" class="ed-hint">Nahrazují barvy šablony a začínají od barev právě vybrané šablony. Dokud jsou zapnuté, šablonu nejde změnit.</span>
+                    <div x-show="customColors" class="flex flex-col gap-2.5">
+                        <span class="ed-subtitle">Plochy</span>
+                        <label class="ed-color"><span>Hlavní barva<span class="ed-hint block">okraje a zvýrazněné bloky</span></span><input type="color" x-model.debounce.300ms="c1" aria-label="Hlavní barva"></label>
+                        <label class="ed-color"><span>Pozadí programu</span><input type="color" x-model.debounce.300ms="c2" aria-label="Pozadí programu"></label>
+                        <span class="ed-subtitle">Texty</span>
+                        <label class="ed-color"><span>Název akce</span><input type="color" x-model.debounce.300ms="c5" aria-label="Název akce"></label>
+                        <label class="ed-color"><span>Den v týdnu</span><input type="color" x-model.debounce.300ms="c6" aria-label="Den v týdnu"></label>
+                        <label class="ed-color"><span>Text v blocích</span><input type="color" x-model.debounce.300ms="c3" aria-label="Text v blocích"></label>
+                        <label class="ed-color"><span>Text ve zvýrazněných blocích</span><input type="color" x-model.debounce.300ms="c7" aria-label="Text ve zvýrazněných blocích"></label>
+                    </div>
+                </section>
+
+                <section x-show="t().required" class="ed-card">
+                    <h4 class="ed-title">Povinné bloky</h4>
+                    <div class="grid grid-cols-6 gap-1.5" role="radiogroup" aria-label="Ikona povinného bloku">
+                        <?php foreach (REQUIRED_ICONS as $iconKey => [$iconName, $iconSrc]): ?>
+                        <button type="button" role="radio" class="ed-icon" title="<?= $iconName ?>" aria-label="<?= $iconName ?>" @click="icon = '<?= $iconKey ?>'"
+                            x-bind:aria-checked="iconValue() === '<?= $iconKey ?>'"><span class="tt-icon w-6 h-6" style="--icon: url('<?= $iconSrc ?>')" x-bind:style="{ backgroundColor: c4 || '<?= DEFAULT_ICON_COLOR ?>' }"></span></button>
+                        <?php endforeach; ?>
+                    </div>
+                    <label class="ed-color"><span>Barva ikony <button type="button" x-show="c4" @click.prevent="c4 = ''" class="ed-link ml-1">výchozí šedá</button></span><input type="color" aria-label="Barva ikony" x-bind:value="c4 || '<?= DEFAULT_ICON_COLOR ?>'" @input.debounce.300ms="c4 = $event.target.value"></label>
+                    <label class="ed-switch">Vysvětlivka k ikoně <input type="checkbox" x-bind:checked="legendOn()" @change="legend = $event.target.checked"></label>
+                    <div x-show="legendOn()" class="flex flex-col gap-1.5">
+                        <textarea x-model.debounce.500ms="legendText" maxlength="300" rows="3" aria-label="Text vysvětlivky" x-bind:placeholder="t().legendText" class="ed-input resize-none"></textarea>
+                        <span class="ed-hint">Zobrazí se vpravo vedle prvních bloků dne. Prázdné pole = šedý předvyplněný text.</span>
+                    </div>
+                </section>
+
+                <section class="ed-card">
+                    <h4 class="ed-title">Zvýraznění</h4>
+                    <label class="ed-label">Slova pro tmavé bloky
+                        <input type="text" x-model.debounce.500ms="food" maxlength="300" placeholder="snídaně, svačina, oběd, večeře" class="ed-input">
+                        <span class="ed-hint">Blok, v jehož názvu je některé z těchto celých slov, bude tmavý. Hodí se pro jídla. Odděl čárkou.</span>
+                    </label>
+                </section>
+
+                <div class="flex flex-col gap-2 mt-auto pt-1">
+                    <template x-if="shared">
+                        <div class="flex flex-col gap-2">
+                            <button type="button" x-show="<?= json_encode($is_authenticated) ?>" @click="saveShared()" class="ed-btn ed-btn-primary">Uložit jako můj styl</button>
+                            <button type="button" @click="discardShared()" class="ed-btn">Zahodit sdílený styl</button>
+                        </div>
+                    </template>
+                    <button type="button" @click="shareLink()" class="ed-btn" x-text="copied ? 'Odkaz zkopírován' : 'Kopírovat odkaz se stylem'"></button>
+                    <button type="button" @click="reset()" x-show="isCustomized()" class="ed-btn">Zrušit úpravy</button>
+                    <p class="ed-hint px-1">
+                        <?php if ($is_authenticated): ?>
+                            <span x-show="!shared && saveStatus !== 'error'">Styl se ukládá k tvému účtu a použije se při každém generování.</span>
+                            <span x-show="saveStatus === 'error'" class="text-red-600">Styl se nepodařilo uložit. Zkus to znovu.</span>
+                        <?php else: ?>
+                            Po přihlášení se styl uloží k tvému účtu. Bez přihlášení se úpravy po zavření stránky ztratí.
+                        <?php endif; ?>
+                    </p>
+                </div>
+            </div>
+            <iframe x-bind:src="preview_popup ? 'sample.php?preview=1&' + query() : 'about:blank'" title="Náhled šablony" class="flex-1 min-h-[50vh] w-full rounded-xl border border-gray-200 bg-white"></iframe>
+        </div>
+    </div>
+
+    <!-- shared style link: lets the receiver preview it and save it as their own -->
+    <div x-cloak x-show="shared" class="fixed top-3 left-1/2 -translate-x-1/2 z-20 w-[calc(100%-2rem)] max-w-lg bg-amber-50 border border-amber-300 rounded-xl shadow-lg p-3 flex flex-wrap items-center gap-2 text-sm">
+        <span class="flex-1 min-w-[12rem]">Někdo s tebou sdílí styl šablony. <?= $is_authenticated ? '' : 'Pro uložení se přihlas.' ?></span>
+        <button type="button" @click="preview_popup = true" class="border border-gray-300 rounded-lg px-3 py-1 bg-white hover:bg-gray-50">Náhled</button>
+        <?php if ($is_authenticated): ?>
+        <button type="button" @click="saveShared()" class="bg-blue-500 text-white rounded-lg px-3 py-1 hover:bg-blue-600">Uložit jako můj styl</button>
+        <?php endif; ?>
+        <button type="button" @click="discardShared()" class="border border-gray-300 rounded-lg px-3 py-1 bg-white hover:bg-gray-50">Zahodit</button>
+    </div>
+
     <!-- calendar export tutorial -->
     <div x-cloak x-show="event_popup" x-transition class="w-full h-full fixed top-0 left-0 flex justify-center items-center py-5 z-10">
         <div @click.outside="event_popup = false" class="w-full h-full pt-10 max-w-4xl mx-3 md:m-0 p-5 bg-white rounded-xl myshadow relative flex flex-col">
@@ -193,7 +413,7 @@ if ($is_authenticated) {
         </div>
     </div>
     
-    <div class="flex justify-center bg-gray-200 items-center w-full p-0 w-0 h-[90vh] z-0">
+    <div class="flex justify-center bg-gray-200 items-center w-full p-0 h-[90vh] z-0">
         <div x-cloak class="w-full max-w-lg mx-3 bg-white rounded-xl shadow-lg p-3">
             <div class="flex justify-center items-center w-full gap-3 m-5 mb-8">
                 <img src="images/logo.png" class="h-8 sm:h-9" alt="Logo" />
@@ -251,11 +471,16 @@ if ($is_authenticated) {
                             <label for="template" class="font-medium">Šablona</label>
                             <img @click="event_popup = !event_popup" src="images/icons/question.svg" class="w-6 cursor-pointer transition hover:scale-110" alt="Help">
                         </div>
-                        <select name="template" id="template" class="bg-gray-50 px-2 py-1.5 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full" required>
-                            <option value="default" selected>Výchozí</option>
-                            <option value="ursus">VK Ursus</option>
-                            <option value="pecka">RK Pecka</option>
-                        </select>
+                        <div class="flex gap-2 w-full">
+                            <select id="template" x-model="tpl" x-bind:disabled="customColors && !!t().colors" class="disabled:opacity-60 disabled:cursor-not-allowed bg-gray-50 px-2 py-1.5 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full" required>
+                                <?= $templateOptions ?>
+                            </select>
+                            <button type="button" @click="preview_popup = true" class="text-sm border border-gray-300 rounded-lg px-3 bg-gray-50 hover:bg-gray-100 transition whitespace-nowrap">Náhled a úpravy</button>
+                        </div>
+                        <input type="hidden" name="template" x-bind:value="tpl"><!-- the select may be disabled, and disabled fields aren't submitted -->
+                        <input type="hidden" name="settings" x-bind:value="query()">
+                        <p x-cloak x-show="customColors && t().colors" class="text-xs text-gray-500 ">Šablonu nejde změnit, dokud máš zapnuté vlastní barvy. Nejdřív je vypni v „Náhled a úpravy“.</p>
+                        <p x-cloak x-show="isCustomized()" class="text-xs text-gray-500" x-text="shared ? 'Použije se sdílený styl (zatím neuložený).' : 'Použije se tvůj uložený styl.'"></p>
                     </div>
 
                     <div class="flex flex-col gap-1 w-full">
@@ -301,7 +526,14 @@ if ($is_authenticated) {
                            <div class="bg-blue-50 p-4 rounded-lg border border-blue-200 text-center">
                                <h2 class="text-lg font-semibold mb-2">Jak to vypadá?</h2>
                                <p class="text-sm text-gray-600 mb-3">Vygenerujte si ukázkový harmonogram bez přihlášení.</p>
-                               <a href="sample.php" class="inline-flex items-center justify-center gap-2 bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg transition-all shadow-sm">
+                               <div class="flex gap-2 mb-3">
+                                   <select x-model="tpl" x-bind:disabled="customColors && !!t().colors" aria-label="Šablona" class="disabled:opacity-60 disabled:cursor-not-allowed bg-white px-2 py-1.5 border border-gray-300 text-gray-900 text-sm rounded-lg w-full">
+                                       <?= $templateOptions ?>
+                                   </select>
+                               <button type="button" @click="preview_popup = true" class="text-sm border border-gray-300 rounded-lg px-3 bg-white hover:bg-gray-50 transition whitespace-nowrap">Náhled a úpravy</button>
+                               </div>
+                               <p x-cloak x-show="customColors && t().colors" class="text-xs text-gray-500 -mt-2 mb-3">Šablonu nejde změnit, dokud máš zapnuté vlastní barvy. Nejdřív je vypni v „Náhled a úpravy“.</p>
+                               <a x-bind:href="'sample.php?' + query()" href="sample.php" class="inline-flex items-center justify-center gap-2 bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg transition-all shadow-sm">
                                    Ukázkový harmonogram
                                </a>
                            </div>

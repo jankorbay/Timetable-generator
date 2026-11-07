@@ -4,12 +4,7 @@
         //according to time, calculate height of box. 2rem = 30min
         $height = (($end->getTimestamp() - $start->getTimestamp()) / 900) * 0.75;
         $time = $start->format('H:i') .' - '. $end->format('H:i');
-        $food = false;
-        foreach ($GLOBALS['food'] as $foodType) {
-            if (mb_stripos($summary, $foodType) !== false) {
-                $food = true;
-            }
-        }
+        $food = containsWholeWord($summary, $GLOBALS['food']);
         echo '
             <div class="box '. ($program ? 'gray_box' : '') . ($food ? 'black_box' : '') . ' min-h-['. $height .'rem] ' . $classes .'">
                 <div class="inner_box">        
@@ -27,7 +22,7 @@
                 if ($required) {
                     echo '
                     <div class="flex justify-end items-center pr-3">
-                        <img class="!h-11 !w-11" src="images/icons/hand.png">
+                        '. iconHtml($GLOBALS['requiredIcon'], $GLOBALS['iconColor'], '!h-11 !w-11') .'
                     </div>';
                 }
             echo '</div>';
@@ -41,10 +36,11 @@
     <link rel="icon" href="images/logo.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="styles.css">
-    <title>Generátor harmonogramu</title>
+    <title><?= $title !== '' ? htmlspecialchars($title) . ' – ' : '' ?>Harmonogram</title>
 </head>
 <body class="timetable">
     <?php foreach ($days as $day => $events) { ?>
+        <?php include __DIR__ . '/header.php'; ?>
         <h1 class="text-center font-['skautbold'] text-3xl mb-5"><?= $week_days[(new DateTime($day))->format('w')] . ' ' . (new DateTime($day))->format('d. m.') ?></h1>
         <div id="boxes" class="flex gap-1 flex-col font-['themix'] avoid-break">
         <!-- first two columns -->
@@ -61,8 +57,10 @@
             </div>
                 <div class="flex justify-center items-center avoid-break">
                     <div class="flex flex-row gap-1 justify-center items-center w-[85%] avoid-break">
-                        <img class="h-12 aspect-square" src="images/icons/hand.png">
-                        <p class="text-[0.5rem]">Takto označený program souvisí s povinným úkolem ve stezce. K jeho splnění nebude další příležitost.</p>
+                        <?php if ($legend): ?>
+                        <?= iconHtml($requiredIcon, $iconColor, 'h-12 w-12') ?>
+                        <p class="text-[0.5rem]"><?= htmlspecialchars($legendText) ?></p>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>
@@ -105,7 +103,9 @@
         Vygenerováno pomocí harmonogram.skauting.cz
     </div>
 </body>
+<?php if (empty($preview)): ?>
 <script>
     window.onload = function() { window.print(); }
 </script>
+<?php endif; ?>
 </html>
