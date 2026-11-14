@@ -119,6 +119,15 @@ if ($is_authenticated) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" href="images/logo.png">
     <title>Generátor harmonogramu</title>
+    <meta name="description" content="Z Google kalendáře tisknutelný harmonogram tábora jedním kliknutím.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://harmonogram.skauting.cz/">
+    <meta property="og:title" content="Generátor harmonogramu">
+    <meta property="og:description" content="Z Google kalendáře tisknutelný harmonogram tábora jedním kliknutím.">
+    <meta property="og:image" content="https://harmonogram.skauting.cz/images/social-preview.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="600">
+    <meta name="twitter:card" content="summary_large_image">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="styles.css?v=<?= filemtime(__DIR__ . '/styles.css') ?>"><!-- version = file time, so browsers drop a cached old copy -->
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
